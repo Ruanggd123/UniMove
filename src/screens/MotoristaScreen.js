@@ -1,13 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-import Footer from "./style/Footer"; // Importando o rodapé
+import Footer from "../style/Footer"; // Importando o rodapé
+//import AddNameWord from "../fileWord/AddNameWord";
 
-export default function MapScreen() {
+export default function MotoristaScreen() {
   return (
     <View style={styles.container}>
-      {/* Rodapé dentro do Mapa */}
-      <Footer />
+      <Text>Motoriesta</Text>
     </View>
   );
 }

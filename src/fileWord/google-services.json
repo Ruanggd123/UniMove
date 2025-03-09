@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "524858934679",
+    "project_id": "unimove-f7712",
+    "storage_bucket": "unimove-f7712.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524858934679:android:0fc72935942698f69eb0d2",
+        "android_client_info": {
+          "package_name": "com.unimove"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkZo2pa8V5Jq6BfOWn2sbTraFPqb94h5U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
