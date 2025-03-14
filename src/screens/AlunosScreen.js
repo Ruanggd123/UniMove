@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
-import { ref, push, onValue, remove } from "firebase/database";
+import { ref, push, onValue, remove, get, set } from "firebase/database";
 import { database } from "../firebaseConfig";
 import * as FileSystem from "expo-file-system";
 import PizZip from "pizzip";
@@ -110,14 +110,15 @@ const gerarDoc = async (lista, tipo) => {
 
 function AlunosScreen() {
   const [name, setName] = useState("");
-  const [seletLocation, setSeletLocation] = useState("");
-  const [customLocation, setCustomLocation] = useState("");
   const [selectOpcao, setSelectOpcao] = useState("Subir");
+  const [localSubir, setLocalSubir] = useState("");
+  const [localDescer, setLocalDescer] = useState("");
   const [listaSubir, setListaSubir] = useState([]);
   const [listaDescer, setListaDescer] = useState([]);
   const [tipoLista, setTipoLista] = useState("Ambas");
   const [showForm, setShowForm] = useState(true);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [lastDeleted, setLastDeleted] = useState("");
 
   useEffect(() => {
     const alunosRef = ref(database, "alunos");
@@ -127,14 +128,22 @@ function AlunosScreen() {
         let subirList = [];
         let descerList = [];
         Object.values(data).forEach((item) => {
-          if (item.subir || item.descerSubir) subirList.push(item.name);
-          if (item.descer || item.descerSubir) descerList.push(item.name);
+          if (item.subir) subirList.push(item.name);
+          if (item.descer) descerList.push(item.name);
         });
         setListaSubir(subirList);
         setListaDescer(descerList);
       } else {
         setListaSubir([]);
         setListaDescer([]);
+      }
+    });
+
+    // Obter a última data de exclusão
+    const lastDeletedRef = ref(database, "lastDeleted");
+    get(lastDeletedRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        setLastDeleted(snapshot.val().date);
       }
     });
   }, []);
@@ -144,18 +153,44 @@ function AlunosScreen() {
       alert("Máximo de 27 pessoas ou preencha todos os campos!");
       return;
     }
-    const local = seletLocation === "other" ? customLocation : seletLocation;
+    if (selectOpcao === "Subir" && !localSubir.trim()) {
+      alert("Por favor, preencha o local de subida!");
+      return;
+    }
+    if (selectOpcao === "Descer" && !localDescer.trim()) {
+      alert("Por favor, preencha o local de descida!");
+      return;
+    }
+    if (
+      selectOpcao === "DescerSubir" &&
+      (!localSubir.trim() || !localDescer.trim())
+    ) {
+      alert("Por favor, preencha ambos os locais para subir e descer!");
+      return;
+    }
+
     try {
-      await push(ref(database, "alunos"), {
-        name,
-        local,
-        subir: selectOpcao === "Subir",
-        descer: selectOpcao === "Descer",
-        descerSubir: selectOpcao === "DescerSubir",
-      });
+      let alunoData = { name };
+
+      if (selectOpcao === "Subir") {
+        alunoData.localSubir = localSubir;
+        alunoData.subir = true;
+        alunoData.descer = false;
+      } else if (selectOpcao === "Descer") {
+        alunoData.localDescer = localDescer;
+        alunoData.subir = false;
+        alunoData.descer = true;
+      } else if (selectOpcao === "DescerSubir") {
+        alunoData.localSubir = localSubir;
+        alunoData.localDescer = localDescer;
+        alunoData.subir = true;
+        alunoData.descer = true;
+      }
+
+      await push(ref(database, "alunos"), alunoData);
       setName("");
-      setSeletLocation("");
-      setCustomLocation("");
+      setLocalSubir("");
+      setLocalDescer("");
       setSelectOpcao("Subir");
     } catch (error) {
       console.error("Erro ao salvar:", error);
@@ -169,7 +204,24 @@ function AlunosScreen() {
         const data = snapshot.val();
         Object.keys(data).forEach((key) => {
           if (data[key].name === nameToDelete) {
+            // Excluir o aluno
             remove(ref(database, `alunos/${key}`));
+
+            // Atualizar a data e hora da última exclusão no Firebase
+            const lastDeletedDate = new Date();
+            const formattedDate = lastDeletedDate.toLocaleString("pt-BR", {
+              weekday: "long",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+
+            // Armazenar a data formatada no Firebase
+            set(ref(database, "lastDeleted"), {
+              date: formattedDate,
+            });
           }
         });
       }
@@ -202,12 +254,12 @@ function AlunosScreen() {
           <FormAlunos
             name={name}
             setName={setName}
-            seletLocation={seletLocation}
-            setSeletLocation={setSeletLocation}
-            customLocation={customLocation}
-            setCustomLocation={setCustomLocation}
             selectOpcao={selectOpcao}
             setSelectOpcao={setSelectOpcao}
+            localSubir={localSubir}
+            setLocalSubir={setLocalSubir}
+            localDescer={localDescer}
+            setLocalDescer={setLocalDescer}
             handleEnviar={handleEnviar}
           />
         )}
@@ -225,6 +277,7 @@ function AlunosScreen() {
         </View>
       </ScrollView>
       <View style={styles.footerPlaceholder} />
+
       <TouchableOpacity
         style={styles.printToggle}
         onPress={() => setShowPrintOptions(!showPrintOptions)}
@@ -251,7 +304,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#eef2f3",
     paddingTop: 10,
-    paddingBottom: 80, // Espaço para o footer de 70px
+    paddingBottom: 80,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -275,9 +328,15 @@ const styles = StyleSheet.create({
   footerPlaceholder: {
     backgroundColor: "transparent",
   },
+  lastDeletedText: {
+    fontSize: 14,
+    textAlign: "center",
+    color: "#555",
+    marginBottom: 10,
+  },
   printToggle: {
     position: "absolute",
-    bottom: 80, // 70px do footer + 10px extra
+    bottom: 80,
     right: 20,
     padding: 8,
     backgroundColor: "#007bff",
